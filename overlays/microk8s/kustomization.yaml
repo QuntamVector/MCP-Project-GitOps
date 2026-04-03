@@ -1,0 +1,65 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: mcp-dev
+
+resources:
+  - ../../base/mcp-api-gateway
+  - ../../base/auth-service
+  - ../../base/mcp-control-plane
+  - ../../base/model-service
+  - ../../base/ai-assistant
+  - ../../base/recommendation-engine
+  - ../../base/product-service
+  - ../../base/user-service
+  - ../../base/payment-service
+  - ../../base/frontend
+  - ../../base/redis
+  - ../../base/postgresql
+
+# Override all image tags to use local builds
+images:
+  - name: mcp-api-gateway
+    newName: mcp-api-gateway
+    newTag: dev
+  - name: auth-service
+    newName: auth-service
+    newTag: dev
+  - name: mcp-control-plane
+    newName: mcp-control-plane
+    newTag: dev
+  - name: model-service
+    newName: model-service
+    newTag: dev
+  - name: ai-assistant
+    newName: ai-assistant
+    newTag: dev
+  - name: recommendation-engine
+    newName: recommendation-engine
+    newTag: dev
+  - name: product-service
+    newName: product-service
+    newTag: dev
+  - name: user-service
+    newName: user-service
+    newTag: dev
+  - name: payment-service
+    newName: payment-service
+    newTag: dev
+  - name: frontend
+    newName: frontend
+    newTag: dev
+
+# Common labels for dev
+commonLabels:
+  environment: dev
+
+patches:
+  # Scale down — all services run as 1 replica in dev
+  - path: patches/replicas.yaml
+  # Expose frontend as NodePort for easy local access
+  - path: patches/frontend-nodeport.yaml
+  # Reduce resource limits for dev
+  - path: patches/resources.yaml
+  # Smaller postgres storage
+  - path: patches/postgres-storage.yaml

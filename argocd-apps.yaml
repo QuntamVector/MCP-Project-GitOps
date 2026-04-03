@@ -1,0 +1,431 @@
+# ─────────────────────────────────────────────────────────────
+# AppProject
+# ─────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: mcp-platform
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: MCP Platform — AI + DevOps on AWS EKS
+  sourceRepos:
+    - https://github.com/QuntamVector/GitOps.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: mcp-platform
+    - server: https://kubernetes.default.svc
+      namespace: argocd
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - group: "*"
+      kind: "*"
+  roles:
+    - name: developer
+      policies:
+        - p, proj:mcp-platform:developer, applications, get,  mcp-platform/*, allow
+        - p, proj:mcp-platform:developer, applications, sync, mcp-platform/*, allow
+    - name: admin
+      policies:
+        - p, proj:mcp-platform:admin, applications, *, mcp-platform/*, allow
+---
+# ─────────────────────────────────────────────────────────────
+# Wave 1 — Infrastructure
+# ─────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: redis
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: mcp-platform
+  source:
+    repoURL: https://github.com/QuntamVector/GitOps.git
+    targetRevision: HEAD
+    path: overlays/eks
+    kustomize:
+      images:
+        - redis:7-alpine
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mcp-platform
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: postgresql
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: mcp-platform
+  source:
+    repoURL: https://github.com/QuntamVector/GitOps.git
+    targetRevision: HEAD
+    path: base/postgresql
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mcp-platform
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
+  ignoreDifferences:
+    - group: apps
+      kind: StatefulSet
+      jsonPointers:
+        - /spec/volumeClaimTemplates
+---
+# ─────────────────────────────────────────────────────────────
+# Wave 2 — Core Platform
+# ─────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: auth-service
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: mcp-platform
+  source:
+    repoURL: https://github.com/QuntamVector/GitOps.git
+    targetRevision: HEAD
+    path: base/auth-service
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mcp-platform
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mcp-control-plane
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: mcp-platform
+  source:
+    repoURL: https://github.com/QuntamVector/GitOps.git
+    targetRevision: HEAD
+    path: base/mcp-control-plane
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mcp-platform
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
+---
+# ─────────────────────────────────────────────────────────────
+# Wave 3 — AI Services
+# ─────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: model-service
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: mcp-platform
+  source:
+    repoURL: https://github.com/QuntamVector/GitOps.git
+    targetRevision: HEAD
+    path: base/model-service
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mcp-platform
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ai-assistant
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: mcp-platform
+  source:
+    repoURL: https://github.com/QuntamVector/GitOps.git
+    targetRevision: HEAD
+    path: base/ai-assistant
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mcp-platform
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: recommendation-engine
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: mcp-platform
+  source:
+    repoURL: https://github.com/QuntamVector/GitOps.git
+    targetRevision: HEAD
+    path: base/recommendation-engine
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mcp-platform
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
+---
+# ─────────────────────────────────────────────────────────────
+# Wave 4 — Business Services
+# ─────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: product-service
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: mcp-platform
+  source:
+    repoURL: https://github.com/QuntamVector/GitOps.git
+    targetRevision: HEAD
+    path: base/product-service
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mcp-platform
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: user-service
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: mcp-platform
+  source:
+    repoURL: https://github.com/QuntamVector/GitOps.git
+    targetRevision: HEAD
+    path: base/user-service
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mcp-platform
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: payment-service
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: mcp-platform
+  source:
+    repoURL: https://github.com/QuntamVector/GitOps.git
+    targetRevision: HEAD
+    path: base/payment-service
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mcp-platform
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
+---
+# ─────────────────────────────────────────────────────────────
+# Wave 5 — API Gateway
+# ─────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mcp-api-gateway
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: mcp-platform
+  source:
+    repoURL: https://github.com/QuntamVector/GitOps.git
+    targetRevision: HEAD
+    path: base/mcp-api-gateway
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mcp-platform
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
+---
+# ─────────────────────────────────────────────────────────────
+# Wave 6 — Frontend
+# ─────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: frontend
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "6"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: mcp-platform
+  source:
+    repoURL: https://github.com/QuntamVector/GitOps.git
+    targetRevision: HEAD
+    path: base/frontend
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mcp-platform
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m

@@ -1,0 +1,17 @@
+# Higher resource limits for AI inference workload
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: model-service
+spec:
+  template:
+    spec:
+      containers:
+        - name: model-service
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"

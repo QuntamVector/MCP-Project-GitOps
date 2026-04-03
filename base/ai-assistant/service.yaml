@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-assistant
+spec:
+  selector:
+    app: ai-assistant
+  ports:
+    - port: 8003
+      targetPort: 8003
+  type: ClusterIP

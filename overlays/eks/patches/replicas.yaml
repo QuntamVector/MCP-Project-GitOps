@@ -1,0 +1,79 @@
+# Production replica counts per deployment
+- op: replace
+  path: /spec/replicas
+  value: 2
+target:
+  kind: Deployment
+  name: mcp-api-gateway
+
+---
+- op: replace
+  path: /spec/replicas
+  value: 1
+target:
+  kind: Deployment
+  name: auth-service
+
+---
+- op: replace
+  path: /spec/replicas
+  value: 1
+target:
+  kind: Deployment
+  name: mcp-control-plane
+
+---
+- op: replace
+  path: /spec/replicas
+  value: 2
+target:
+  kind: Deployment
+  name: model-service
+
+---
+- op: replace
+  path: /spec/replicas
+  value: 1
+target:
+  kind: Deployment
+  name: ai-assistant
+
+---
+- op: replace
+  path: /spec/replicas
+  value: 1
+target:
+  kind: Deployment
+  name: recommendation-engine
+
+---
+- op: replace
+  path: /spec/replicas
+  value: 1
+target:
+  kind: Deployment
+  name: product-service
+
+---
+- op: replace
+  path: /spec/replicas
+  value: 1
+target:
+  kind: Deployment
+  name: user-service
+
+---
+- op: replace
+  path: /spec/replicas
+  value: 1
+target:
+  kind: Deployment
+  name: payment-service
+
+---
+- op: replace
+  path: /spec/replicas
+  value: 2
+target:
+  kind: Deployment
+  name: frontend
