@@ -296,6 +296,163 @@ kubectl rollout restart deployment argocd-server -n argocd
 
 ---
 
+## 9. Deploy All MCP Platform Apps in One Shot
+
+This is the fastest way to get every service running on EKS from scratch.
+
+### Step 1 — Apply the App of Apps manifest
+
+One single `kubectl apply` registers all 13 ArgoCD Applications at once:
+
+```bash
+kubectl apply -f gitops/argocd-apps.yaml
+```
+
+This creates the `mcp-platform` AppProject plus one ArgoCD Application per service:
+
+| Wave | Services deployed |
+|------|------------------|
+| Wave 1 | redis, postgresql |
+| Wave 2 | auth-service, mcp-control-plane |
+| Wave 3 | model-service, ai-assistant, recommendation-engine |
+| Wave 4 | product-service, user-service, payment-service |
+| Wave 5 | mcp-api-gateway |
+| Wave 6 | frontend |
+
+ArgoCD automatically respects the wave order — each wave waits until the previous wave is Healthy before proceeding.
+
+### Step 2 — Trigger a full sync
+
+```bash
+argocd app sync --label app.kubernetes.io/part-of=mcp-platform
+```
+
+If that label isn't set, sync each app in wave order explicitly:
+
+```bash
+# Wave 1
+argocd app sync redis postgresql
+
+# Wave 2 (waits for wave 1 to be Healthy)
+argocd app sync auth-service mcp-control-plane
+
+# Wave 3
+argocd app sync model-service ai-assistant recommendation-engine
+
+# Wave 4
+argocd app sync product-service user-service payment-service
+
+# Wave 5
+argocd app sync mcp-api-gateway
+
+# Wave 6
+argocd app sync frontend
+```
+
+Or sync everything at once and let the wave annotations control the order:
+
+```bash
+argocd app sync \
+  redis postgresql \
+  auth-service mcp-control-plane \
+  model-service ai-assistant recommendation-engine \
+  product-service user-service payment-service \
+  mcp-api-gateway \
+  frontend
+```
+
+### Step 3 — Watch the rollout live
+
+```bash
+# Watch all applications status
+watch -n 3 "argocd app list"
+
+# Or with kubectl
+watch -n 3 "kubectl get applications -n argocd"
+
+# Watch pods coming up in mcp-platform namespace
+kubectl get pods -n mcp-platform -w
+```
+
+### Step 4 — Verify everything is Healthy + Synced
+
+```bash
+argocd app list
+```
+
+Expected output — all apps should show `Synced` and `Healthy`:
+
+```
+NAME                    CLUSTER     NAMESPACE     PROJECT       STATUS  HEALTH
+redis                   in-cluster  mcp-platform  mcp-platform  Synced  Healthy
+postgresql              in-cluster  mcp-platform  mcp-platform  Synced  Healthy
+auth-service            in-cluster  mcp-platform  mcp-platform  Synced  Healthy
+mcp-control-plane       in-cluster  mcp-platform  mcp-platform  Synced  Healthy
+model-service           in-cluster  mcp-platform  mcp-platform  Synced  Healthy
+ai-assistant            in-cluster  mcp-platform  mcp-platform  Synced  Healthy
+recommendation-engine   in-cluster  mcp-platform  mcp-platform  Synced  Healthy
+product-service         in-cluster  mcp-platform  mcp-platform  Synced  Healthy
+user-service            in-cluster  mcp-platform  mcp-platform  Synced  Healthy
+payment-service         in-cluster  mcp-platform  mcp-platform  Synced  Healthy
+mcp-api-gateway         in-cluster  mcp-platform  mcp-platform  Synced  Healthy
+frontend                in-cluster  mcp-platform  mcp-platform  Synced  Healthy
+```
+
+### Quick full-deploy script
+
+Save this as `gitops/deploy-all.sh` and run it once after ArgoCD is installed:
+
+```bash
+#!/bin/bash
+set -e
+
+ARGOCD_SERVER="localhost:8080"
+ARGOCD_USER="admin"
+ARGOCD_PASS="$1"   # pass the admin password as first argument
+
+echo "==> Logging into ArgoCD..."
+argocd login $ARGOCD_SERVER \
+  --username $ARGOCD_USER \
+  --password $ARGOCD_PASS \
+  --insecure
+
+echo "==> Applying App of Apps manifest..."
+kubectl apply -f argocd-apps.yaml
+
+echo "==> Waiting for Applications to be created..."
+sleep 5
+
+echo "==> Syncing all applications (wave order)..."
+argocd app sync \
+  redis postgresql \
+  auth-service mcp-control-plane \
+  model-service ai-assistant recommendation-engine \
+  product-service user-service payment-service \
+  mcp-api-gateway \
+  frontend
+
+echo "==> Waiting for all apps to become Healthy..."
+for app in redis postgresql auth-service mcp-control-plane \
+           model-service ai-assistant recommendation-engine \
+           product-service user-service payment-service \
+           mcp-api-gateway frontend; do
+  echo "  Waiting for $app..."
+  argocd app wait $app --health --timeout 300
+done
+
+echo ""
+echo "All MCP Platform apps are Synced and Healthy!"
+argocd app list
+```
+
+Usage:
+```bash
+chmod +x gitops/deploy-all.sh
+./gitops/deploy-all.sh <your-argocd-admin-password>
+```
+
+---
+
 ## Architecture Reference
 
 ```
