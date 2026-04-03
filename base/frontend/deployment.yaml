@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: 508262720940.dkr.ecr.ap-northeast-1.amazonaws.com/mcp-platform/frontend:6d4cf70dd2e136862bbd85acf3634b584a54fe25
+          image: 508262720940.dkr.ecr.ap-northeast-1.amazonaws.com/mcp-platform/frontend:e0afaed1a9eb1ba4aed847a9e46f8722b3f83906
           ports:
             - containerPort: 80
           resources:
