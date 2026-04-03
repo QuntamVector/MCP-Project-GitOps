@@ -1,6 +1,20 @@
 # ArgoCD Setup on AWS EKS
 
-This guide covers installing ArgoCD on your EKS cluster, retrieving the initial admin secret, and deploying the MCP Platform apps.
+This guide covers installing ArgoCD on your EKS cluster, retrieving the initial admin secret, deploying the MCP Platform apps, and setting up IRSA for real EKS metrics.
+
+---
+
+## Cluster Details
+
+| Field | Value |
+|-------|-------|
+| Cluster Name | `quantamvector` |
+| Region | `ap-northeast-1` |
+| Account ID | `508262720940` |
+| OIDC Provider | `oidc.eks.ap-northeast-1.amazonaws.com/id/54010A8680852B657EC215C7264F77E3` |
+| Namespace | `mcp-platform` |
+| GitOps Repo | `https://github.com/QuntamVector/MCP-Project-GitOps.git` |
+| Services Repo | `https://github.com/QuntamVector/MCP-Project-ALL-services.git` |
 
 ---
 
@@ -15,7 +29,7 @@ This guide covers installing ArgoCD on your EKS cluster, retrieving the initial 
 ```bash
 aws eks update-kubeconfig \
   --region ap-northeast-1 \
-  --name mcp-platform-dev
+  --name quantamvector
 
 kubectl config current-context
 kubectl get nodes
@@ -78,7 +92,10 @@ echo   # print a newline after the password
 > **Username:** `admin`
 > **Password:** output of the command above
 
-> **Note:** The initial password is the name of the `argocd-server` pod. The secret is only present on first install. After you change the password it can be deleted.
+> **Note:** After you change the password, delete the initial secret:
+> ```bash
+> kubectl delete secret argocd-initial-admin-secret -n argocd
+> ```
 
 ---
 
@@ -105,8 +122,6 @@ kubectl patch svc argocd-server \
 # Get the external hostname (takes ~60s to provision)
 kubectl get svc argocd-server -n argocd
 ```
-
-The `EXTERNAL-IP` column will show the AWS ALB/NLB hostname.
 
 ### Option C — Expose via ALB Ingress (recommended for production)
 
@@ -139,7 +154,7 @@ EOF
 
 ---
 
-## 4. Install the ArgoCD CLI (optional but useful)
+## 4. Install the ArgoCD CLI
 
 ```bash
 # macOS
@@ -168,17 +183,9 @@ argocd account update-password \
   --new-password <your-new-password>
 ```
 
-After changing, delete the initial secret:
-
-```bash
-kubectl delete secret argocd-initial-admin-secret -n argocd
-```
-
 ---
 
 ## 5. Add GitHub Repository to ArgoCD
-
-ArgoCD needs read access to the GitOps repo.
 
 ### Option A — HTTPS with token (GitHub PAT)
 
@@ -209,67 +216,218 @@ EOF
 
 ---
 
-## 6. Deploy MCP Platform Applications
+## 6. Apply Secrets and ConfigMap (required before pods start)
 
-Apply the App-of-Apps manifest which creates all 13 ArgoCD Applications:
+These must be applied manually — secrets are never stored in Git.
+
+```bash
+# ConfigMap (service URLs, DB host, cluster info)
+kubectl apply -n mcp-platform -f base/platform-config/configmap.yaml
+
+# Secrets (apply with real values)
+kubectl apply -n mcp-platform -f - <<EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mcp-secrets
+  namespace: mcp-platform
+type: Opaque
+stringData:
+  POSTGRES_USER: "postgres"
+  POSTGRES_PASSWORD: "<your-rds-password>"
+  JWT_SECRET: "<your-jwt-secret>"
+  OPENAI_API_KEY: "<your-openai-key>"
+  REDIS_PASSWORD: ""
+EOF
+```
+
+---
+
+## 7. IRSA Setup — Real EKS Metrics for Control Plane
+
+The `mcp-control-plane` service queries the EKS API using boto3. It needs an IAM role via IRSA.
+
+### Step 1 — Create IAM policy
+
+```bash
+aws iam create-policy \
+  --policy-name mcp-control-plane-eks-policy \
+  --policy-document '{
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Allow",
+        "Action": [
+          "eks:DescribeCluster",
+          "eks:ListClusters",
+          "eks:ListNodegroups",
+          "eks:DescribeNodegroup"
+        ],
+        "Resource": "*"
+      }
+    ]
+  }'
+```
+
+### Step 2 — Create IAM role with OIDC trust
+
+```bash
+cat > trust-policy.json << 'EOF'
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "Federated": "arn:aws:iam::508262720940:oidc-provider/oidc.eks.ap-northeast-1.amazonaws.com/id/54010A8680852B657EC215C7264F77E3"
+      },
+      "Action": "sts:AssumeRoleWithWebIdentity",
+      "Condition": {
+        "StringEquals": {
+          "oidc.eks.ap-northeast-1.amazonaws.com/id/54010A8680852B657EC215C7264F77E3:sub": "system:serviceaccount:mcp-platform:mcp-control-plane",
+          "oidc.eks.ap-northeast-1.amazonaws.com/id/54010A8680852B657EC215C7264F77E3:aud": "sts.amazonaws.com"
+        }
+      }
+    }
+  ]
+}
+EOF
+
+aws iam create-role \
+  --role-name mcp-control-plane-role \
+  --assume-role-policy-document file://trust-policy.json
+```
+
+### Step 3 — Attach policy to role
+
+```bash
+aws iam attach-role-policy \
+  --role-name mcp-control-plane-role \
+  --policy-arn arn:aws:iam::508262720940:policy/mcp-control-plane-eks-policy
+```
+
+### Step 4 — Apply RBAC + ServiceAccount
+
+```bash
+kubectl apply -f base/mcp-control-plane/rbac.yaml
+```
+
+### Step 5 — Verify IRSA is working
+
+```bash
+kubectl rollout restart deployment mcp-control-plane -n mcp-platform
+
+# Should show AWS_ROLE_ARN and AWS_WEB_IDENTITY_TOKEN_FILE
+kubectl exec -n mcp-platform deployment/mcp-control-plane -- env | grep AWS
+```
+
+---
+
+## 8. Deploy All MCP Platform Apps in One Shot
+
+### Step 1 — Apply the App of Apps manifest
 
 ```bash
 kubectl apply -f argocd-apps.yaml
 ```
 
-### Verify applications are created
+This creates the `mcp-platform` AppProject plus one ArgoCD Application per service:
+
+| Wave | Services |
+|------|----------|
+| Wave 0 | platform-config (ConfigMap) |
+| Wave 1 | redis |
+| Wave 2 | auth-service, mcp-control-plane |
+| Wave 3 | model-service, ai-assistant, recommendation-engine |
+| Wave 4 | product-service, user-service, payment-service |
+| Wave 5 | mcp-api-gateway |
+| Wave 6 | frontend |
+
+### Step 2 — Sync all apps in wave order
 
 ```bash
-kubectl get applications -n argocd
+argocd app sync platform-config
+argocd app sync redis
+argocd app sync auth-service mcp-control-plane
+argocd app sync model-service ai-assistant recommendation-engine
+argocd app sync product-service user-service payment-service
+argocd app sync mcp-api-gateway
+argocd app sync frontend
+```
 
-# Or with argocd CLI
+### Step 3 — Watch the rollout
+
+```bash
+watch -n 3 "argocd app list"
+kubectl get pods -n mcp-platform -w
+```
+
+### Step 4 — Verify all Healthy + Synced
+
+```bash
 argocd app list
 ```
 
-### Sync all apps
-
-```bash
-argocd app sync mcp-platform-apps
-
-# Or sync individually
-argocd app sync mcp-api-gateway
-argocd app sync auth-service
-argocd app sync frontend
-# ... etc
+Expected:
+```
+NAME                    STATUS  HEALTH
+platform-config         Synced  Healthy
+redis                   Synced  Healthy
+auth-service            Synced  Healthy
+mcp-control-plane       Synced  Healthy
+model-service           Synced  Healthy
+ai-assistant            Synced  Healthy
+recommendation-engine   Synced  Healthy
+product-service         Synced  Healthy
+user-service            Synced  Healthy
+payment-service         Synced  Healthy
+mcp-api-gateway         Synced  Healthy
+frontend                Synced  Healthy
 ```
 
-### Watch sync status
+### Quick deploy script
 
 ```bash
-kubectl get applications -n argocd -w
+chmod +x deploy-all.sh
+./deploy-all.sh <your-argocd-admin-password>
 ```
 
 ---
 
-## 7. Useful Commands
+## 9. Useful Commands
 
 | Task | Command |
 |------|---------|
 | Get admin password | `kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath="{.data.password}" \| base64 --decode` |
 | Port-forward UI | `kubectl port-forward svc/argocd-server -n argocd 8080:443` |
 | List all apps | `argocd app list` |
-| Sync all apps | `argocd app sync --selector app.kubernetes.io/part-of=mcp-platform` |
-| App health status | `argocd app get <app-name>` |
-| Force hard refresh | `argocd app get <app-name> --hard-refresh` |
+| Sync one app | `argocd app sync <app-name>` |
+| App health | `argocd app get <app-name>` |
+| Force refresh | `argocd app get <app-name> --hard-refresh` |
 | Delete app | `argocd app delete <app-name>` |
-| Get ArgoCD version | `argocd version` |
+| Watch pods | `kubectl get pods -n mcp-platform -w` |
+| Restart deployment | `kubectl rollout restart deployment <name> -n mcp-platform` |
+| Check logs | `kubectl logs -f deployment/<name> -n mcp-platform` |
+| Get all services | `kubectl get svc -n mcp-platform` |
 
 ---
 
-## 8. Troubleshooting
+## 10. Troubleshooting
 
 ### Pod stuck in Pending
 ```bash
-kubectl describe pod <pod-name> -n argocd
-kubectl get events -n argocd --sort-by='.lastTimestamp'
+kubectl describe pod <pod-name> -n mcp-platform
+kubectl get events -n mcp-platform --sort-by='.lastTimestamp'
 ```
 
-### App OutOfSync but no changes
+### CreateContainerConfigError
+```bash
+# Check if ConfigMap and Secret exist
+kubectl get configmap mcp-config -n mcp-platform
+kubectl get secret mcp-secrets -n mcp-platform
+```
+
+### App OutOfSync
 ```bash
 argocd app diff <app-name>
 argocd app sync <app-name> --force
@@ -283,10 +441,8 @@ argocd repo get https://github.com/QuntamVector/MCP-Project-GitOps.git
 
 ### Reset admin password (if locked out)
 ```bash
-# Get the bcrypt hash of your new password
 htpasswd -nbBC 10 "" newpassword | tr -d ':\n' | sed 's/$2y/$2a/'
 
-# Patch the argocd-secret
 kubectl patch secret argocd-secret \
   -n argocd \
   -p '{"stringData": {"admin.password": "<bcrypt-hash>", "admin.passwordMtime": "'$(date +%FT%T%Z)'"}}'
@@ -296,176 +452,30 @@ kubectl rollout restart deployment argocd-server -n argocd
 
 ---
 
-## 9. Deploy All MCP Platform Apps in One Shot
-
-This is the fastest way to get every service running on EKS from scratch.
-
-### Step 1 — Apply the App of Apps manifest
-
-One single `kubectl apply` registers all 13 ArgoCD Applications at once:
-
-```bash
-kubectl apply -f gitops/argocd-apps.yaml
-```
-
-This creates the `mcp-platform` AppProject plus one ArgoCD Application per service:
-
-| Wave | Services deployed |
-|------|------------------|
-| Wave 1 | redis, postgresql |
-| Wave 2 | auth-service, mcp-control-plane |
-| Wave 3 | model-service, ai-assistant, recommendation-engine |
-| Wave 4 | product-service, user-service, payment-service |
-| Wave 5 | mcp-api-gateway |
-| Wave 6 | frontend |
-
-ArgoCD automatically respects the wave order — each wave waits until the previous wave is Healthy before proceeding.
-
-### Step 2 — Trigger a full sync
-
-```bash
-argocd app sync --label app.kubernetes.io/part-of=mcp-platform
-```
-
-If that label isn't set, sync each app in wave order explicitly:
-
-```bash
-# Wave 1
-argocd app sync redis postgresql
-
-# Wave 2 (waits for wave 1 to be Healthy)
-argocd app sync auth-service mcp-control-plane
-
-# Wave 3
-argocd app sync model-service ai-assistant recommendation-engine
-
-# Wave 4
-argocd app sync product-service user-service payment-service
-
-# Wave 5
-argocd app sync mcp-api-gateway
-
-# Wave 6
-argocd app sync frontend
-```
-
-Or sync everything at once and let the wave annotations control the order:
-
-```bash
-argocd app sync \
-  redis postgresql \
-  auth-service mcp-control-plane \
-  model-service ai-assistant recommendation-engine \
-  product-service user-service payment-service \
-  mcp-api-gateway \
-  frontend
-```
-
-### Step 3 — Watch the rollout live
-
-```bash
-# Watch all applications status
-watch -n 3 "argocd app list"
-
-# Or with kubectl
-watch -n 3 "kubectl get applications -n argocd"
-
-# Watch pods coming up in mcp-platform namespace
-kubectl get pods -n mcp-platform -w
-```
-
-### Step 4 — Verify everything is Healthy + Synced
-
-```bash
-argocd app list
-```
-
-Expected output — all apps should show `Synced` and `Healthy`:
-
-```
-NAME                    CLUSTER     NAMESPACE     PROJECT       STATUS  HEALTH
-redis                   in-cluster  mcp-platform  mcp-platform  Synced  Healthy
-postgresql              in-cluster  mcp-platform  mcp-platform  Synced  Healthy
-auth-service            in-cluster  mcp-platform  mcp-platform  Synced  Healthy
-mcp-control-plane       in-cluster  mcp-platform  mcp-platform  Synced  Healthy
-model-service           in-cluster  mcp-platform  mcp-platform  Synced  Healthy
-ai-assistant            in-cluster  mcp-platform  mcp-platform  Synced  Healthy
-recommendation-engine   in-cluster  mcp-platform  mcp-platform  Synced  Healthy
-product-service         in-cluster  mcp-platform  mcp-platform  Synced  Healthy
-user-service            in-cluster  mcp-platform  mcp-platform  Synced  Healthy
-payment-service         in-cluster  mcp-platform  mcp-platform  Synced  Healthy
-mcp-api-gateway         in-cluster  mcp-platform  mcp-platform  Synced  Healthy
-frontend                in-cluster  mcp-platform  mcp-platform  Synced  Healthy
-```
-
-### Quick full-deploy script
-
-Save this as `gitops/deploy-all.sh` and run it once after ArgoCD is installed:
-
-```bash
-#!/bin/bash
-set -e
-
-ARGOCD_SERVER="localhost:8080"
-ARGOCD_USER="admin"
-ARGOCD_PASS="$1"   # pass the admin password as first argument
-
-echo "==> Logging into ArgoCD..."
-argocd login $ARGOCD_SERVER \
-  --username $ARGOCD_USER \
-  --password $ARGOCD_PASS \
-  --insecure
-
-echo "==> Applying App of Apps manifest..."
-kubectl apply -f argocd-apps.yaml
-
-echo "==> Waiting for Applications to be created..."
-sleep 5
-
-echo "==> Syncing all applications (wave order)..."
-argocd app sync \
-  redis postgresql \
-  auth-service mcp-control-plane \
-  model-service ai-assistant recommendation-engine \
-  product-service user-service payment-service \
-  mcp-api-gateway \
-  frontend
-
-echo "==> Waiting for all apps to become Healthy..."
-for app in redis postgresql auth-service mcp-control-plane \
-           model-service ai-assistant recommendation-engine \
-           product-service user-service payment-service \
-           mcp-api-gateway frontend; do
-  echo "  Waiting for $app..."
-  argocd app wait $app --health --timeout 300
-done
-
-echo ""
-echo "All MCP Platform apps are Synced and Healthy!"
-argocd app list
-```
-
-Usage:
-```bash
-chmod +x gitops/deploy-all.sh
-./gitops/deploy-all.sh <your-argocd-admin-password>
-```
-
----
-
 ## Architecture Reference
 
 ```
-EKS Cluster (ap-northeast-1)
-└── namespace: argocd
-    ├── argocd-server          ← UI + API
-    ├── argocd-repo-server     ← Pulls from GitHub
-    ├── argocd-application-controller  ← Reconciles K8s state
-    ├── argocd-applicationset-controller
-    ├── argocd-dex-server      ← SSO (optional)
-    └── argocd-redis           ← Cache
+EKS Cluster: quantamvector (ap-northeast-1)
+├── namespace: argocd
+│   ├── argocd-server                    ← UI + API
+│   ├── argocd-repo-server               ← Pulls from GitHub
+│   ├── argocd-application-controller    ← Reconciles K8s state
+│   └── argocd-redis                     ← Cache
+│
+└── namespace: mcp-platform
+    ├── platform-config  (ConfigMap)
+    ├── redis
+    ├── auth-service     → RDS PostgreSQL (quantamvectordb.crqai6ems4a2.ap-northeast-1.rds.amazonaws.com)
+    ├── mcp-control-plane → K8s API + EKS API (IRSA)
+    ├── model-service    → OpenAI GPT-4o
+    ├── ai-assistant     → OpenAI GPT-4o-mini
+    ├── recommendation-engine → OpenAI GPT-4o-mini
+    ├── product-service
+    ├── user-service     → RDS PostgreSQL
+    ├── payment-service
+    ├── mcp-api-gateway  ← Routes all /api/* traffic
+    └── frontend         ← React + Nginx (public)
 
 GitHub: QuntamVector/MCP-Project-GitOps
-    └── argocd-apps.yaml  ←  ArgoCD watches this
-        └── gitops/overlays/eks/  ←  Applied to mcp-platform namespace
+    └── argocd-apps.yaml  ← ArgoCD watches this repo
 ```
