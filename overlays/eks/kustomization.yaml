@@ -17,7 +17,6 @@ resources:
   - ../../base/redis
   # postgresql removed — using AWS RDS instead
   - hpa.yaml
-  - ingress.yaml
   - cluster-issuer.yaml
 
 # Point all images to ECR
