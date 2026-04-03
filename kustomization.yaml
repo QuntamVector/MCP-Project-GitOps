@@ -14,4 +14,4 @@ resources:
   - base/payment-service
   - base/frontend
   - base/redis
-  - base/postgresql
+  # postgresql removed — using AWS RDS instead

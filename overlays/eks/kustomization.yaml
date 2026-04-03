@@ -15,7 +15,7 @@ resources:
   - ../../base/payment-service
   - ../../base/frontend
   - ../../base/redis
-  - ../../base/postgresql
+  # postgresql removed — using AWS RDS instead
   - hpa.yaml
   - ingress.yaml
 
@@ -62,5 +62,4 @@ patches:
   - path: patches/resources.yaml
   # model-service needs more CPU for AI inference
   - path: patches/model-service-resources.yaml
-  # Postgres production storage
-  - path: patches/postgres-storage.yaml
+  # postgres-storage patch removed — using AWS RDS

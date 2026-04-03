@@ -14,10 +14,11 @@ data:
   PAYMENT_SERVICE_URL: "http://payment-service:8009"
   MCP_CONTROL_PLANE_URL: "http://mcp-control-plane:8008"
 
-  # Database
-  POSTGRES_HOST: "postgresql"
+  # Database (AWS RDS)
+  POSTGRES_HOST: "quantamvectordb.crqai6ems4a2.ap-northeast-1.rds.amazonaws.com"
   POSTGRES_PORT: "5432"
-  POSTGRES_DB: "mcp_platform"
+  POSTGRES_DB: "postgres"
+  POSTGRES_SSLMODE: "verify-full"
 
   # Redis
   REDIS_HOST: "redis"
