@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: product-service
-          image: 508262720940.dkr.ecr.ap-northeast-1.amazonaws.com/mcp-platform/product-service:6d4cf70dd2e136862bbd85acf3634b584a54fe25
+          image: 508262720940.dkr.ecr.ap-northeast-1.amazonaws.com/mcp-platform/product-service:c1fa9d6928daf112457b3a5ac0a2b23f54bc392b
           ports:
             - containerPort: 8005
           envFrom:
