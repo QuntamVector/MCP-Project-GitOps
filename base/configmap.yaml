@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mcp-config
+  namespace: mcp-platform
+data:
+  # Service URLs (internal cluster DNS)
+  AUTH_SERVICE_URL: "http://auth-service:8001"
+  MODEL_SERVICE_URL: "http://model-service:8003"
+  AI_ASSISTANT_URL: "http://ai-assistant:8004"
+  RECOMMENDATION_ENGINE_URL: "http://recommendation-engine:8005"
+  PRODUCT_SERVICE_URL: "http://product-service:8006"
+  USER_SERVICE_URL: "http://user-service:8007"
+  PAYMENT_SERVICE_URL: "http://payment-service:8009"
+  MCP_CONTROL_PLANE_URL: "http://mcp-control-plane:8008"
+
+  # Database
+  POSTGRES_HOST: "postgresql"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "mcp_platform"
+
+  # Redis
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+
+  # App config
+  ENVIRONMENT: "production"
+  LOG_LEVEL: "info"
+  AWS_REGION: "ap-northeast-1"
