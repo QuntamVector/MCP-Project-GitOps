@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: mcp-api-gateway
-          image: 508262720940.dkr.ecr.ap-northeast-1.amazonaws.com/mcp-platform/mcp-api-gateway:fb1e70e87e34bbc8019e03ead54f7e5eb45b511e
+          image: 508262720940.dkr.ecr.ap-northeast-1.amazonaws.com/mcp-platform/mcp-api-gateway:c1fa9d6928daf112457b3a5ac0a2b23f54bc392b
           ports:
             - containerPort: 8000
           envFrom:
