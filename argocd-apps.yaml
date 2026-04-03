@@ -33,6 +33,40 @@ spec:
         - p, proj:mcp-platform:admin, applications, *, mcp-platform/*, allow
 ---
 # ─────────────────────────────────────────────────────────────
+# Wave 0 — Platform Config (must exist before all pods)
+# ─────────────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-config
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: mcp-platform
+  source:
+    repoURL: https://github.com/QuntamVector/MCP-Project-GitOps.git
+    targetRevision: HEAD
+    path: base/platform-config
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mcp-platform
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
+---
+# ─────────────────────────────────────────────────────────────
 # Wave 1 — Infrastructure
 # ─────────────────────────────────────────────────────────────
 apiVersion: argoproj.io/v1alpha1
