@@ -22,34 +22,34 @@ resources:
 # Point all images to ECR
 images:
   - name: mcp-api-gateway
-    newName: 508262720940.dkr.ecr.us-east-1.amazonaws.com/mcp-platform/mcp-api-gateway
+    newName: 508262720940.dkr.ecr.ap-northeast-1.amazonaws.com/mcp-platform/mcp-api-gateway
     newTag: latest
   - name: auth-service
-    newName: 508262720940.dkr.ecr.us-east-1.amazonaws.com/mcp-platform/auth-service
+    newName: 508262720940.dkr.ecr.ap-northeast-1.amazonaws.com/mcp-platform/auth-service
     newTag: latest
   - name: mcp-control-plane
-    newName: 508262720940.dkr.ecr.us-east-1.amazonaws.com/mcp-platform/mcp-control-plane
+    newName: 508262720940.dkr.ecr.ap-northeast-1.amazonaws.com/mcp-platform/mcp-control-plane
     newTag: latest
   - name: model-service
-    newName: 508262720940.dkr.ecr.us-east-1.amazonaws.com/mcp-platform/model-service
+    newName: 508262720940.dkr.ecr.ap-northeast-1.amazonaws.com/mcp-platform/model-service
     newTag: latest
   - name: ai-assistant
-    newName: 508262720940.dkr.ecr.us-east-1.amazonaws.com/mcp-platform/ai-assistant
+    newName: 508262720940.dkr.ecr.ap-northeast-1.amazonaws.com/mcp-platform/ai-assistant
     newTag: latest
   - name: recommendation-engine
-    newName: 508262720940.dkr.ecr.us-east-1.amazonaws.com/mcp-platform/recommendation-engine
+    newName: 508262720940.dkr.ecr.ap-northeast-1.amazonaws.com/mcp-platform/recommendation-engine
     newTag: latest
   - name: product-service
-    newName: 508262720940.dkr.ecr.us-east-1.amazonaws.com/mcp-platform/product-service
+    newName: 508262720940.dkr.ecr.ap-northeast-1.amazonaws.com/mcp-platform/product-service
     newTag: latest
   - name: user-service
-    newName: 508262720940.dkr.ecr.us-east-1.amazonaws.com/mcp-platform/user-service
+    newName: 508262720940.dkr.ecr.ap-northeast-1.amazonaws.com/mcp-platform/user-service
     newTag: latest
   - name: payment-service
-    newName: 508262720940.dkr.ecr.us-east-1.amazonaws.com/mcp-platform/payment-service
+    newName: 508262720940.dkr.ecr.ap-northeast-1.amazonaws.com/mcp-platform/payment-service
     newTag: latest
   - name: frontend
-    newName: 508262720940.dkr.ecr.us-east-1.amazonaws.com/mcp-platform/frontend
+    newName: 508262720940.dkr.ecr.ap-northeast-1.amazonaws.com/mcp-platform/frontend
     newTag: latest
 
 commonLabels:
