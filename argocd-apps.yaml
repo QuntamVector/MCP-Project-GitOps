@@ -20,6 +20,12 @@ spec:
   clusterResourceWhitelist:
     - group: ""
       kind: Namespace
+    - group: "cert-manager.io"
+      kind: ClusterIssuer
+    - group: "rbac.authorization.k8s.io"
+      kind: ClusterRole
+    - group: "rbac.authorization.k8s.io"
+      kind: ClusterRoleBinding
   namespaceResourceWhitelist:
     - group: "*"
       kind: "*"
@@ -102,42 +108,6 @@ spec:
         duration: 10s
         factor: 2
         maxDuration: 3m
----
-apiVersion: argoproj.io/v1alpha1
-kind: Application
-metadata:
-  name: postgresql
-  namespace: argocd
-  annotations:
-    argocd.argoproj.io/sync-wave: "1"
-  finalizers:
-    - resources-finalizer.argocd.argoproj.io
-spec:
-  project: mcp-platform
-  source:
-    repoURL: https://github.com/QuntamVector/MCP-Project-GitOps.git
-    targetRevision: HEAD
-    path: base/postgresql
-  destination:
-    server: https://kubernetes.default.svc
-    namespace: mcp-platform
-  syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
-    syncOptions:
-      - CreateNamespace=true
-    retry:
-      limit: 5
-      backoff:
-        duration: 10s
-        factor: 2
-        maxDuration: 3m
-  ignoreDifferences:
-    - group: apps
-      kind: StatefulSet
-      jsonPointers:
-        - /spec/volumeClaimTemplates
 ---
 # ─────────────────────────────────────────────────────────────
 # Wave 2 — Core Platform
