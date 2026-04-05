@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: user-service
-          image: 508262720940.dkr.ecr.ap-northeast-1.amazonaws.com/mcp-platform/user-service:c1fa9d6928daf112457b3a5ac0a2b23f54bc392b
+          image: 508262720940.dkr.ecr.ap-northeast-1.amazonaws.com/mcp-platform/user-service:d76529fe15680794f623d8498ef411b6cd287adf
           ports:
             - containerPort: 8006
           envFrom:
