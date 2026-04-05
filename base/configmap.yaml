@@ -28,3 +28,4 @@ data:
   ENVIRONMENT: "production"
   LOG_LEVEL: "info"
   AWS_REGION: "ap-northeast-1"
+  CLUSTER_NAME: "quantamvector"
