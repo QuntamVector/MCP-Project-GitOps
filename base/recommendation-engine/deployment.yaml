@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: recommendation-engine
-          image: 508262720940.dkr.ecr.ap-northeast-1.amazonaws.com/mcp-platform/recommendation-engine:c1fa9d6928daf112457b3a5ac0a2b23f54bc392b
+          image: 508262720940.dkr.ecr.ap-northeast-1.amazonaws.com/mcp-platform/recommendation-engine:7312bdfeb60b5e19fc9fc6d6bca43e24eda543ad
           ports:
             - containerPort: 8004
           envFrom:
