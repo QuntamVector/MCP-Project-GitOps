@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: model-service
-          image: 508262720940.dkr.ecr.ap-northeast-1.amazonaws.com/mcp-platform/model-service:b0c9a9de633d262b5a514513370ac49274039d2b
+          image: 508262720940.dkr.ecr.ap-northeast-1.amazonaws.com/mcp-platform/model-service:42d596a25b605187a1d05114a991ea0c760cce52
           ports:
             - containerPort: 8002
           envFrom:
