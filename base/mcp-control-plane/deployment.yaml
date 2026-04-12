@@ -15,7 +15,7 @@ spec:
       serviceAccountName: mcp-control-plane
       containers:
         - name: mcp-control-plane
-          image: 508262720940.dkr.ecr.ap-northeast-1.amazonaws.com/mcp-platform/mcp-control-plane:433e0432ce4122390c410a1b9b75480ea5b84c14
+          image: 508262720940.dkr.ecr.ap-northeast-1.amazonaws.com/mcp-platform/mcp-control-plane:899f283fd17c2e6a7d4e1bfa46f54e844b3d23aa
           ports:
             - containerPort: 8008
           envFrom:
