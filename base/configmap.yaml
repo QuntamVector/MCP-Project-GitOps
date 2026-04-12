@@ -15,7 +15,7 @@ data:
   MCP_CONTROL_PLANE_URL: "http://mcp-control-plane:8008"
 
   # Database (AWS RDS)
-  POSTGRES_HOST: "quantamvectordb.crqai6ems4a2.ap-northeast-1.rds.amazonaws.com"
+  POSTGRES_HOST: "quantam.crqai6ems4a2.ap-northeast-1.rds.amazonaws.com"
   POSTGRES_PORT: "5432"
   POSTGRES_DB: "postgres"
   POSTGRES_SSLMODE: "require"
