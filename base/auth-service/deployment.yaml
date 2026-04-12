@@ -22,6 +22,8 @@ spec:
                 name: mcp-config
             - secretRef:
                 name: mcp-secrets
+            - configMapRef:
+                name: auth-service-config
           resources:
             requests:
               cpu: "100m"
