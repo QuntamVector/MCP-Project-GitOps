@@ -17,7 +17,6 @@ resources:
   - ../../base/redis
   # postgresql removed — using AWS RDS instead
   - hpa.yaml
-  - cluster-issuer.yaml
 
 # Point all images to ECR
 images:
@@ -52,8 +51,9 @@ images:
     newName: 508262720940.dkr.ecr.ap-northeast-1.amazonaws.com/mcp-platform/frontend
     newTag: latest
 
-commonLabels:
-  environment: production
+labels:
+  - pairs:
+      environment: production
 
 patches:
   # Production replicas

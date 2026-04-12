@@ -89,10 +89,7 @@ spec:
   source:
     repoURL: https://github.com/QuntamVector/MCP-Project-GitOps.git
     targetRevision: HEAD
-    path: overlays/eks
-    kustomize:
-      images:
-        - redis:7-alpine
+    path: base/redis
   destination:
     server: https://kubernetes.default.svc
     namespace: mcp-platform
